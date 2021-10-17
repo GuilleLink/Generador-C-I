@@ -175,16 +175,17 @@ class DecafWalker(DecafListener):
 
         for exp in expr:
             if('[' in exp.location().getText()):
+                print('CODEBREAK')
+                print(exp.getText())
                 code += self.code[exp]['code']
-            code += 'PARAM' + self.code[exp]['addr']
+            code += ' PARAM' + self.code[exp]['addr']
 
 
-        call = 'CALL ' + methodID + ', ' + str(len(expr)) +'\n'
+        call = 'CALL ' + methodID + ', ' + str(len(expr))
         self.code[ctx] = {
-            'code' : code,
+            'code' : call+code,
             'addr' : 'R'
         }
-        self.intermediateCode += call
 
     def exitVar_id(self, ctx:DecafParser.Var_idContext):
         name = ctx.getText()
@@ -328,7 +329,7 @@ class DecafWalker(DecafListener):
         
     def enterStatement_while(self, ctx: DecafParser.Statement_whileContext):
         false = f'END_WHILE_{self.whileCounter} \n'
-        true = f'WHILE_TRUE_{self.whileCounter}: \n'
+        true = f'WHILE_TRUE_{ctx.expression().getText()}: \n'
         start = f'BEGIN_WHILE_{self.whileCounter}: \n'
 
         expr = ctx.expression()
@@ -385,7 +386,7 @@ class DecafWalker(DecafListener):
 
     def exitStatement_return(self, ctx: DecafParser.Statement_returnContext):
         expr = ctx.expression()
-        
+
         code = 'RETURN ' + self.code[expr]['addr']
         self.code[ctx] = {
             'code' : code
@@ -582,9 +583,14 @@ class DecafWalker(DecafListener):
             statements = ctx.statement()
             code = ''
             for statement in statements:
-                print(statement.getText())
+                try:
+                    print(self.code[statement.expression().methodCall()])
+                except:
+                    pass
                 code += self.code[statement]['code']
+
             self.code[ctx]['code'] = code
+
         else:
             statements = ctx.statement()
             code = ''
