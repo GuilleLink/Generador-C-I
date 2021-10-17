@@ -10,7 +10,7 @@
             "name": "Debug ANTLR4 grammar",
             "type": "antlr-debug",
             "request": "launch",
-            "input": "test.txt",
+            "input": "quicksort.txt",
             "grammar": "Decaf.g4",
             "startRule": "program",
             "printParseTree": true,

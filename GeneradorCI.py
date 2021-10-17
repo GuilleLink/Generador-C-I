@@ -172,12 +172,19 @@ class DecafWalker(DecafListener):
         expr = ctx.expression()
         methodID = ctx.ID().getText()
         code = ''
-        call = 'CALL ' + methodID + ', ' + str(len(expr))
+
+        for exp in expr:
+            if('[' in exp.location().getText()):
+                code += self.code[exp]['code']
+            code += 'PARAM' + self.code[exp]['addr']
+
+
+        call = 'CALL ' + methodID + ', ' + str(len(expr)) +'\n'
         self.code[ctx] = {
             'code' : code,
             'addr' : 'R'
         }
-        #self.intermediateCode += call
+        self.intermediateCode += call
 
     def exitVar_id(self, ctx:DecafParser.Var_idContext):
         name = ctx.getText()
@@ -376,14 +383,14 @@ class DecafWalker(DecafListener):
         addr = ''
         code = ''
 
-
-
     def exitStatement_return(self, ctx: DecafParser.Statement_returnContext):
         expr = ctx.expression()
+        
         code = 'RETURN ' + self.code[expr]['addr']
         self.code[ctx] = {
             'code' : code
         }
+        self.intermediateCode += code +'\n'
 
     def exitStatement_expression(self, ctx: DecafParser.Statement_expressionContext):
         pass
@@ -534,7 +541,7 @@ class DecafWalker(DecafListener):
 
         try:
             if(ctx.expression().methodCall()):
-                method = ''
+                self.code[ctx] = self.code[ctx.getChild(0)]
         except:
             pass
         if(ctx.location().location()):
@@ -555,12 +562,18 @@ class DecafWalker(DecafListener):
             }
 
         if toAssign.array_id():
-            id = toAssign.array_id().ID().getText()
-            topget = self.top_get(id, self.temporalScope[-1])
+            array_id = toAssign.array_id().ID().getText()
+            topget = self.top_get(array_id, self.temporalScope[-1])
             addr = E['addr']
 
             code = self.code[toAssign]['code'] + E['code'] + \
                 f'{topget}'
+
+            self.code[ctx] = {
+                'code' : code,
+                'addr' : addr
+            }
+
 
         #self.intermediateCode += code
 
@@ -569,6 +582,7 @@ class DecafWalker(DecafListener):
             statements = ctx.statement()
             code = ''
             for statement in statements:
+                print(statement.getText())
                 code += self.code[statement]['code']
             self.code[ctx]['code'] = code
         else:
@@ -656,7 +670,7 @@ class DecafWalker(DecafListener):
             return  allCode
 
 def main():
-    input_stream = FileStream('test.txt')
+    input_stream = FileStream('quicksort.txt')
     lexer = DecafLexer(input_stream)
     stream = CommonTokenStream(lexer)
     parser = DecafParser(stream)
