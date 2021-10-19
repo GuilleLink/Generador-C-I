@@ -1,0 +1,79 @@
+DEF main
+	L[0] = 0
+	BEGIN_WHILE_2
+		IF L[0] < 10 GOTO WHILE_TRUE_2
+		GOTO END_WHILE_2
+	WHILE_TRUE_2
+		t18 = 4 * L[0]
+		t19 = t18 + 0
+		CALL InputInt, 0
+		G[G[t19]] = R
+		t20 = L[0] + 1
+		L[0] = t20
+		GOTO BEGIN_WHILE_2
+	END_WHILE_2
+	CALL Ordenar, 0
+	L[0] = 0
+	BEGIN_WHILE_3
+		IF L[0] < 10 GOTO WHILE_TRUE_3
+		GOTO END_WHILE_3
+	WHILE_TRUE_3
+		t21 = 4 * L[0]
+		t22 = t21 + 0
+		PARAM G[t22]
+		CALL OutputInt, 1
+		t23 = L[0] + 1
+		L[0] = t23
+		GOTO BEGIN_WHILE_3
+	END_WHILE_3
+EXIT DEF main
+DEF Minimo
+	t2 = 4 * L[0]
+	t3 = t2 + 0
+	L[4] = G[t3]
+	L[8] = L[0]
+	BEGIN_WHILE_0
+		IF L[0] < 10 GOTO WHILE_TRUE_0
+		GOTO END_WHILE_0
+	WHILE_TRUE_0
+		t4 = 4 * L[0]
+		t5 = t4 + 0
+		IF G[t5] < L[4] GOTO IF_TRUE_0
+		GOTO END_IF_0
+		IF_TRUE_0
+			t6 = 4 * L[0]
+			t7 = t6 + 0
+			L[4] = G[t7]
+			L[8] = L[0]
+		END_IF_0
+		t8 = L[0] + 1
+		L[0] = t8
+		GOTO BEGIN_WHILE_0
+	END_WHILE_0
+	RETURN L[8]
+EXIT DEF Minimo
+DEF Ordenar
+	L[0] = 0
+	BEGIN_WHILE_1
+		IF L[0] < 10 GOTO WHILE_TRUE_1
+		GOTO END_WHILE_1
+	WHILE_TRUE_1
+		PARAM L[0]
+		CALL Minimo, 1
+		L[12] = R
+		t9 = 4 * L[12]
+		t10 = t9 + 0
+		L[8] = G[t10]
+		t11 = 4 * L[12]
+		t12 = t11 + 0
+		t13 = 4 * L[0]
+		t14 = t13 + 0
+		G[G[t12]] = G[t14]
+		t15 = 4 * L[0]
+		t16 = t15 + 0
+		G[G[t16]] = L[8]
+		t17 = L[0] + 1
+		L[0] = t17
+		GOTO BEGIN_WHILE_1
+	END_WHILE_1
+EXIT DEF Ordenar

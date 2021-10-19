@@ -28,6 +28,7 @@ class DecafWalker(DecafListener):
         self.ifCounter = 0
         self.whileCounter = 0
         self.tempCounter = 0
+        self.lastCondition = ''
         self.typeTable = {
             "int": [4, 0],
             "char": [2, ""],
@@ -70,6 +71,8 @@ class DecafWalker(DecafListener):
             self.code[ctx] = self.code[ctx.getChild(0)]
             if(ctx.getChild(0) in self.code[ctx.getChild(0)]):
                 self.code[ctx] = self.code[ctx.getChild(0)]
+        elif(type(ctx.getChild(0)) == DecafParser.VarDeclarationContext):
+            self.code[ctx] = self.code[ctx.getChild(0)]
 
 
     def enterMethodDeclaration(self, ctx: DecafParser.MethodDeclarationContext):
@@ -77,6 +80,16 @@ class DecafWalker(DecafListener):
         self.offsets[self.temporalScope[-1]] = [0]
         returnType = ctx.methodType().getText()
         self.intermediateCode += f'DEF {ctx.ID().getText()}: \n'
+        try:
+            print("ENTERMETHODDECLARATION")
+            for x in range(ctx.getChildCount()):
+                try:
+                    print(ctx.getChild(x).getText())
+                except:
+                    pass
+            #self.intermediateCode += f'{ctx.getChild(0).getText()}'
+        except:
+            pass
         self.symbolTable[self.temporalScope[-1]] = [self.temporalScope[-2], returnType, {}]
 
         #Todo el recorrido de parametros de cada metodo
@@ -175,17 +188,18 @@ class DecafWalker(DecafListener):
 
         for exp in expr:
             if('[' in exp.location().getText()):
-                print('CODEBREAK')
-                print(exp.getText())
                 code += self.code[exp]['code']
-            code += ' PARAM' + self.code[exp]['addr']
+            code += ' PARAM ' + self.code[exp]['addr']
 
 
-        call = 'CALL ' + methodID + ', ' + str(len(expr))
+        call = 'CALL ' + methodID + ', ' + str(len(expr)) +'\n'
+        
         self.code[ctx] = {
-            'code' : call+code,
+            'code' : code,
             'addr' : 'R'
         }
+        self.intermediateCode += call
+
 
     def exitVar_id(self, ctx:DecafParser.Var_idContext):
         name = ctx.getText()
@@ -235,7 +249,6 @@ class DecafWalker(DecafListener):
     def exitVarType_struct(self, ctx: DecafParser.VarType_structContext):
         pass
 
-
     def enterVarDeclaration_ID(self, ctx: DecafParser.VarDeclaration_IDContext):                
 
         if(ctx.varType() is not None):
@@ -250,8 +263,12 @@ class DecafWalker(DecafListener):
     def enterVarDeclaration_Array(self, ctx: DecafParser.VarDeclaration_ArrayContext):
         if(ctx.varType() is not None):
             varType = ctx.varType().getText()
-            varID = ctx.ID().getText()
-            arraySize = ctx.NUM().getText()
+            varID = ctx.getChild(1).getText()
+            try:
+                arraySize = ctx.NUM().getText()
+            except:
+                arraySize = ctx.getChild(3).getText()
+                offset = self.checkOnTable(varID,self.temporalScope[-1]).offset
             size = self.typeTable[varType][0]
             size = size*int(arraySize)
             offset = self.offsets[self.temporalScope[-1]][-1]
@@ -261,7 +278,23 @@ class DecafWalker(DecafListener):
 
 
     def exitVarDeclaration_Array(self, ctx: DecafParser.VarDeclaration_ArrayContext):
-        pass
+        
+        for x in range(ctx.getChildCount()):
+            if (x==0):
+                #Se consigue el valor del desplazamiento del offset
+                varType = ctx.getChild(x).getText()                
+                variableOffset = self.typeTable[varType][0]
+            elif (x==1):
+                #Se consigue el nombre de la variable que se esta registrando aunque se modifique a t#
+                var_id = ctx.getChild(x).getText()
+            elif (x==3):
+                ctx.getChild(x).getText()
+
+        topget = self.top_get(var_id, self.temporalScope[-1])
+        code = {
+            'addr': topget,
+            'code': ''
+        }
 
 
     def enterStatement_if(self, ctx: DecafParser.Statement_ifContext):
@@ -269,6 +302,8 @@ class DecafWalker(DecafListener):
         end = f'END_IF_{self.ifCounter} \n'
         true = f'IF_TRUE_{self.ifCounter}: \n'
         false = f'IF_FALSE_{self.ifCounter}: \n'
+
+        self.intermediateCode += true
 
         if(len(ctx.children) > 5):
             expr = ctx.getChild(2)
@@ -313,7 +348,7 @@ class DecafWalker(DecafListener):
             self.code[ctx] = {
                 'code': B['code']+B['true']+S1['code']+'GOTO '+S1['next']+B['false'] +S2['code']+S1['next']
             }
-            self.intermediateCode += self.code[ctx]['code']
+            #self.intermediateCode += self.code[ctx]['code']
             
         else:
             expr = ctx.expression()
@@ -323,14 +358,17 @@ class DecafWalker(DecafListener):
             self.code[ctx] = {
                 'code': B['code'] + B['true'] + S['code'] + B['false']
             }
-            self.intermediateCode += self.code[ctx]['code']
+            #self.intermediateCode += self.code[ctx]['code']
         
         self.ifCounter +=1
         
     def enterStatement_while(self, ctx: DecafParser.Statement_whileContext):
         false = f'END_WHILE_{self.whileCounter} \n'
-        true = f'WHILE_TRUE_{ctx.expression().getText()}: \n'
-        start = f'BEGIN_WHILE_{self.whileCounter}: \n'
+        true = f'WHILE_TRUE_{self.whileCounter}:\n'
+        start = f'BEGIN_WHILE_{self.whileCounter}:\n'
+        condition = f'IF {self.lastCondition} GO TO {true}GO TO {false}'
+
+        self.intermediateCode += start+condition+true
 
         expr = ctx.expression()
         block = ctx.block()
@@ -357,32 +395,24 @@ class DecafWalker(DecafListener):
             'code' : code
         }
 
-        self.intermediateCode += code
+        self.intermediateCode += 'GOTO ' + S['next'] + B['false']
 
     def exitVarDeclaration_ID(self, ctx: DecafParser.VarDeclaration_IDContext):
-        #variable para mantener track del t# que se estara manejando para dicha variable        
-        parent = ctx.parentCtx
 
         for x in range(ctx.getChildCount()):
             if (x==0):
                 #Se consigue el valor del desplazamiento del offset
                 varType = ctx.getChild(x).getText()                
                 variableOffset = self.typeTable[varType][0]
-
             elif (x==1):
                 #Se consigue el nombre de la variable que se esta registrando aunque se modifique a t#
-                name = ctx.getChild(x).getText()
+                var_id = ctx.getChild(x).getText()
 
-        id = ctx.ID().getText()
-
-        topget = self.top_get(id, self.temporalScope[-1])
+        topget = self.top_get(var_id, self.temporalScope[-1])
         code = {
             'addr': topget,
             'code': ''
         }
-
-        addr = ''
-        code = ''
 
     def exitStatement_return(self, ctx: DecafParser.Statement_returnContext):
         expr = ctx.expression()
@@ -503,6 +533,43 @@ class DecafWalker(DecafListener):
             'false': self.code[ctx]['false']
         }
 
+    def enterExpression_compare(self, ctx:DecafParser.Expression_compareContext):
+        mem1 = ''
+        mem2 = ''
+        try:
+            try:
+                LSvariable = ctx.getChild(0).location().var_id().ID().getText()
+            except:
+                LSvariable = ctx.getChild(0).location().array_id().ID().getText()
+                
+            mem1 = self.top_get(LSvariable, self.temporalScope[-1])
+        except:
+            mem1 = ctx.getChild(0).getText()
+        try:
+            try:
+                RSvariable = LSvariable = ctx.getChild(2).location().var_id().ID().getText()
+            except:
+                RSvariable = LSvariable = ctx.getChild(2).location().array_id().ID().getText()
+            mem2 = self.top_get(RSvariable, self.temporalScope[-1])
+        except:
+            mem2 = ctx.getChild(2).getText()
+
+        code = mem1 + ctx.getChild(1).getText() + mem2
+        self.code[ctx] = {
+            'code' : code,
+            'addr' : '',
+            'true' : '',
+            'false' : '',
+            'next' : '',
+        }
+        print('CONDITION')
+        print(code)
+        self.lastCondition = code
+
+    def exitExpression_compare(self, ctx:DecafParser.Expression_compareContext):
+        self.code[ctx]
+
+
     #Se envia al padre
     def exitExpression_literal(self, ctx:DecafParser.Expression_literalContext):
         self.code[ctx] = self.code[ctx.getChild(0)]
@@ -538,6 +605,7 @@ class DecafWalker(DecafListener):
 
         E = self.code[assignedValue]
         L = self.code[toAssign]
+
         code = ''
 
         try:
@@ -546,6 +614,7 @@ class DecafWalker(DecafListener):
         except:
             pass
         if(ctx.location().location()):
+            code = L['code']+E['code']+L['addr'] +' = ' +E['addr']
             self.code[ctx] = {
                 'addr' : '',
                 'code' : L['code']+E['code']+L['addr'] +' = ' +E['addr']
@@ -562,6 +631,8 @@ class DecafWalker(DecafListener):
                 'addr' : E['addr']
             }
 
+
+
         if toAssign.array_id():
             array_id = toAssign.array_id().ID().getText()
             topget = self.top_get(array_id, self.temporalScope[-1])
@@ -575,8 +646,7 @@ class DecafWalker(DecafListener):
                 'addr' : addr
             }
 
-
-        #self.intermediateCode += code
+        self.intermediateCode += code
 
     def exitBlock(self, ctx:DecafParser.BlockContext):           
         if (type(ctx.parentCtx) == DecafParser.Statement_ifContext or type(ctx.parentCtx) == DecafParser.Statement_whileContext):
@@ -607,17 +677,6 @@ class DecafWalker(DecafListener):
         createdTemp = "t"+str(self.tempCounter)
         self.tempCounter += 1
         return createdTemp
-
-    def createIfCondition(self, boolean=''):
-        if(boolean == 'TRUE' or boolean == 'FALSE'):
-            f = 'IF_'+boolean + '_' + str(self.ifCounter)
-            return f
-
-    def createWhileCondition(self, boolean=''):
-        if(boolean == 'TRUE' or boolean == 'FALSE'):
-            f = 'WHILE_'+ boolean + '_' + str(self.whileCounter)
-            return f
-
 
     def checkOnTable(self, id, scope):
         found = False

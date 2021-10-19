@@ -33,7 +33,7 @@ declaration         : structDeclaration
                     ;
 
 varDeclaration      : varType ID ';'                                               #varDeclaration_ID
-                    | varType ID '[' NUM ']' ';'                                   #varDeclaration_Array
+                    | varType ID '[' (NUM|ID) ']' ';'                                   #varDeclaration_Array
                     ;
 
 structDeclaration   : 'struct' ID '{' (varDeclaration)* '}' ';' ;
